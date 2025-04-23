@@ -275,3 +275,11 @@ class TestProductModel(unittest.TestCase):
         with self.assertRaises(DataValidationError) as context:
             product.deserialize(data)
         self.assertIn("Invalid type for boolean [available]", str(context.exception))
+
+    def test_update_without_id_raises_error(self):
+        """It should Raise a DataValidationError when updating without ID"""
+        product = ProductFactory()
+        product.id = None  # Explicitly ensure ID is missing
+        with self.assertRaises(DataValidationError) as context:
+            product.update()
+        self.assertIn("Update called with empty ID field", str(context.exception))
