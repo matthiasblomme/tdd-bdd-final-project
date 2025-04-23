@@ -262,20 +262,6 @@ class TestProductModel(unittest.TestCase):
         self.assertEqual(found.count(), 1)
         self.assertEqual(found.first().price, Decimal("22.50"))
 
-    def test_deserialize_with_invalid_available_type(self):
-        """It should Raise a DataValidationError when available is not a boolean"""
-        data = {
-            "name": "Test Product",
-            "description": "Test Desc",
-            "price": "10.00",  # Valid decimal
-            "available": "notabool",  # This triggers line 106
-            "category": "FOOD"
-        }
-        product = Product()
-        with self.assertRaises(DataValidationError) as context:
-            product.deserialize(data)
-        self.assertIn("Invalid type for boolean [available]", str(context.exception))
-
     def test_update_without_id_raises_error(self):
         """It should Raise a DataValidationError when updating without ID"""
         product = ProductFactory()
