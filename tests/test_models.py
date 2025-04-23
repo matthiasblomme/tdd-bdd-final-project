@@ -27,7 +27,7 @@ import os
 import logging
 import unittest
 from decimal import Decimal
-from service.models import Product, Category, db
+from service.models import Product, Category, db, DataValidationError
 from service import app
 from tests.factories import ProductFactory
 
@@ -192,3 +192,86 @@ class TestProductModel(unittest.TestCase):
         self.assertEqual(found.count(), count)
         for product in found:
             self.assertEqual(product.category, category)
+
+    def test_deserialize_with_invalid_available_type(self):
+        """It should Raise a DataValidationError when available is not a boolean"""
+        data = {
+            "name": "InvalidProduct",
+            "description": "This will fail",
+            "price": "10.99",
+            "available": "yes",  # invalid type
+            "category": "FOOD"
+        }
+        product = Product()
+        with self.assertRaises(DataValidationError) as context:
+            product.deserialize(data)
+        self.assertIn("Invalid type for boolean [available]", str(context.exception))
+
+    def test_deserialize_missing_name_raises_key_error(self):
+        """It should Raise a DataValidationError when name is missing"""
+        data = {
+            # "name" is missing
+            "description": "No name product",
+            "price": "19.99",
+            "available": True,
+            "category": "TOOLS"
+        }
+        product = Product()
+        with self.assertRaises(DataValidationError) as context:
+            product.deserialize(data)
+        self.assertIn("missing name", str(context.exception))
+
+    def test_find_by_price(self):
+        """It should Find Products by Price"""
+        products = ProductFactory.create_batch(5)
+        for product in products:
+            product.create()
+        target_price = products[2].price
+        expected = [p for p in products if p.price == target_price]
+        found = Product.find_by_price(target_price)
+        self.assertEqual(found.count(), len(expected))
+        for product in found:
+            self.assertEqual(product.price, target_price)
+
+    def test_deserialize_invalid_category_raises_attribute_error(self):
+        """It should Raise DataValidationError for invalid category"""
+        data = {
+            "name": "BadCategory",
+            "description": "Oops",
+            "price": "10.99",
+            "available": True,
+            "category": "MAGIC"  # not in Category enum
+        }
+        product = Product()
+        with self.assertRaises(DataValidationError) as context:
+            product.deserialize(data)
+        self.assertIn("Invalid attribute", str(context.exception))
+
+    def test_deserialize_type_error(self):
+        """It should Raise DataValidationError when given None instead of dict"""
+        product = Product()
+        with self.assertRaises(DataValidationError) as context:
+            product.deserialize(None)
+        self.assertIn("Invalid product: body of request contained bad or no data", str(context.exception))
+
+    def test_find_by_price_as_string(self):
+        """It should Find Products by Price even if passed as string"""
+        product = ProductFactory(price=Decimal("22.50"))
+        product.create()
+        found = Product.find_by_price("22.50")  # Pass price as string
+        self.assertEqual(found.count(), 1)
+        self.assertEqual(found.first().price, Decimal("22.50"))
+
+    def test_deserialize_with_invalid_available_type(self):
+        """It should Raise a DataValidationError when available is not a boolean"""
+        data = {
+            "name": "Test Product",
+            "description": "Test Desc",
+            "price": "10.00",  # Valid decimal
+            "available": "notabool",  # This triggers line 106
+            "category": "FOOD"
+        }
+        product = Product()
+        with self.assertRaises(DataValidationError) as context:
+            product.deserialize(data)
+        self.assertIn("Invalid type for boolean [available]", str(context.exception))
